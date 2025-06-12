@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>麻將全功能計算機 (最終整合版)</title>
+    <style>
+        /* 整體與佈局 */
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f1f3f5; color: #212529; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; margin: 0; padding: 20px 0; }
+        .container { background-color: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 95%; max-width: 750px; }
+        h1, h2, h3, h4 { text-align: center; color: #1971c2; }
+        .hidden { display: none !important; }
+        .text-center { text-align: center; }
+        .margin-top-20 { margin-top: 20px; }
+        .section-divider { border-top: 2px dashed #ced4da; margin: 25px 0; }
+
+        /* 按鈕樣式 */
+        .btn { padding: 12px 20px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin: 5px; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-weight: 500; }
+        .btn:active { transform: translateY(1px); box-shadow: none; }
+        .btn-primary { background-color: #1c7ed6; color: white; } .btn-primary:hover { background-color: #116ab8; }
+        .btn-secondary { background-color: #f59f00; color: white; } .btn-secondary:hover { background-color: #e69500; }
+        .btn-danger { background-color: #e03131; color: white; } .btn-danger:hover { background-color: #c92a2a; }
+        .btn-success { background-color: #37b24d; color: white; } .btn-success:hover { background-color: #2f9e44; }
+        .btn-back { background-color: #868e96; color: white; } .btn-back:hover { background-color: #5c6770; }
+        .btn-yaku { background-color: #f1f3f4; color: #343a40; } .btn-yaku.selected { background-color: #4285F4; color: white; }
+
+        /* 主選單 */
+        #game-selection .btn { display: block; width: 80%; margin: 15px auto; padding: 18px; font-size: 20px; }
+        #tai-calculator-btn { background-color: #37b24d; } #tai-calculator-btn:hover { background-color: #2f9e44; }
+        #listener-calculator-btn { background-color: #1c7ed6; } #listener-calculator-btn:hover { background-color: #116ab8; }
+        #challenge-btn { background-color: #ae3ec9; } #challenge-btn:hover { background-color: #9c36b5; }
+
+        /* 牌的樣式 */
+        .tile-category { margin-bottom: 10px; }
+        .tile-category-name { font-weight: 600; font-size: 16px; margin-bottom: 8px; }
+        .tile-btn { width: 38px; height: 52px; margin: 2px; border: 1px solid #adb5bd; border-radius: 4px; font-size: 18px; font-weight: bold; cursor: pointer; background-color: #fff; transition: all 0.2s; display: inline-flex; justify-content: center; align-items: center; vertical-align: middle; }
+        .tile-btn:hover { background-color: #e9ecef; }
+        .tile-btn.selected-for-action, .tile-btn.selected { box-shadow: 0 0 0 3px #f59f00; border-color: #f59f00; }
+        .tile-btn.winning-tile { position: relative; overflow: visible; }
+        .tile-btn.winning-tile::after { content: '胡'; position: absolute; top: -8px; right: -8px; background-color: #e03131; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; line-height: 20px; text-align: center; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+        .pin{color:#d6336c;} .sou{color:#2f9e44;} .man{color:#1864ab;} .ji{color:#212529;}
+        .disabled { cursor: not-allowed; background-color: #e9ecef; color: #868e96; }
+
+        /* 通用顯示區 */
+        .hand-display-container { background-color: #e7f5ff; border: 1px dashed #74c0fc; border-radius: 8px; padding: 10px; min-height: 60px; margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; }
+        .hand-display-container .tile-btn:hover { background-color: #ffc9c9; border-color: #e03131; }
+        .result-display { text-align: center; font-size: 1.1em; padding: 15px; background-color: #fff9db; border-radius: 8px; border: 2px solid #fcc419; min-height: 50px; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; }
+
+        /* 算台模式專用 */
+        .meld-group { display: inline-block; border: 1px solid #868e96; padding: 5px; margin: 3px; border-radius: 5px; background: #fff; }
+        .yaku-category { margin-top: 15px; }
+        #tai-results-list { list-style: none; padding: 0; width: 100%; }
+        #tai-results-list li { display: flex; justify-content: space-between; padding: 8px 10px; font-size: 1.1em; border-bottom: 1px solid #dee2e6; }
+        #tai-results-list li:last-child { font-weight: bold; color: #c92a2a; font-size: 1.3em; border-top: 2px solid #343a40; margin-top: 8px; }
+
+        /* 挑戰模式專用 */
+        #challenge-gameplay h3 { color: #ae3ec9; }
+        #challenge-feedback .correct { color: #2f9e44; } #challenge-feedback .incorrect { color: #c92a2a; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="game-selection">
+        <h1>麻將全功能計算機</h1>
+        <button id="tai-calculator-btn" class="btn" onclick="showTaiMenu()">算台模式 (台麻)</button>
+        <button id="listener-calculator-btn" class="btn" onclick="showListenerCalculator('tw')">聽牌/打聽計算 (台麻)</button>
+        <button id="challenge-btn" class="btn" onclick="showChallengeMenu()">清一色試煉</button>
+    </div>
+
+    <div id="tai-mode-selection" class="hidden">
+        <h1>算台模式</h1>
+        <p class="text-center">請選擇計台方式。</p>
+        <button class="btn btn-primary" style="display:block; margin:15px auto;" onclick="startTaiCalculator('no_flower')">無花台模式</button>
+        <button class="btn btn-secondary disabled" style="display:block; margin:15px auto;" disabled>有花台模式 (開發中)</button>
+        <div class="text-center margin-top-20"><button class="btn btn-back" onclick="showMainMenu()">返回主選單</button></div>
+    </div>
+    
+    <div id="tai-calculator" class="hidden">
+        <h2>無花台計台器</h2>
+        <div id="tai-tile-input-panel">
+             <div class="tile-category"><div class="tile-category-name">萬字</div><script>for(let i=1;i<=9;i++)document.write(`<button class="tile-btn man" onclick="selectTileForAction('m${i}')">${i}</button>`);</script></div>
+             <div class="tile-category"><div class="tile-category-name">筒子</div><script>for(let i=1;i<=9;i++)document.write(`<button class="tile-btn pin" onclick="selectTileForAction('p${i}')">${i}</button>`);</script></div>
+             <div class="tile-category"><div class="tile-category-name">條子</div><script>for(let i=1;i<=9;i++)document.write(`<button class="tile-btn sou" onclick="selectTileForAction('s${i}')">${i}</button>`);</script></div>
+             <div class="tile-category"><div class="tile-category-name">大字</div><script>const J=['東','南','西','北','中','發','白'];J.forEach((c,i)=>{document.write(`<button class="tile-btn ji" onclick="selectTileForAction('z${i+1}')">${c}</button>`);});</script></div>
+        </div>
+        <div class="text-center margin-top-20">
+            <button class="btn btn-primary" onclick="addSelectedToAction('hand')">加入手牌</button>
+            <button class="btn btn-secondary" onclick="addSelectedToAction('pong')">設為碰</button>
+            <button class="btn btn-secondary" onclick="addSelectedToAction('kong')">設為槓</button>
+        </div>
+        <div class="section-divider"></div>
+        <h4>門前 (碰/槓)</h4>
+        <div class="hand-display-container"><div id="exposed-hand-display" class="hand-display"></div></div>
+        <h4 class="margin-top-20">門後 (手牌) - 點選指定胡牌</h4>
+        <div class="hand-display-container"><div id="concealed-hand-display" class="hand-display"></div></div>
+        <div class="section-divider"></div>
+        <h3>手動選擇役種</h3>
+        <div class="yaku-category"><h4>1台役種</h4><button class="btn btn-yaku" data-yaku="dealer" data-tai="1">莊家</button><button class="btn btn-yaku" data-yaku="zimo" data-tai="1">自摸</button><button class="btn btn-yaku" data-yaku="qg" data-tai="1">搶槓</button><button class="btn btn-yaku" data-yaku="gskh" data-tai="1">槓上開花</button><button class="btn btn-yaku" data-yaku="hldy" data-tai="1">河底撈魚</button><button class="btn btn-yaku" data-yaku="hdly" data-tai="1">海底撈月</button></div>
+        <div class="yaku-category"><h4>4台役種</h4><button class="btn btn-yaku" data-yaku="diting" data-tai="4">地聽</button></div>
+        <div class="yaku-category"><h4>8台役種</h4><button class="btn btn-yaku" data-yaku="tianting" data-tai="8">天聽</button><button class="btn btn-yaku" data-yaku="miji" data-tai="8">咪吉</button></div>
+        <div class="yaku-category"><h4>16台役種</h4><button class="btn btn-yaku" data-yaku="tianhu" data-tai="16">天胡</button><button class="btn btn-yaku" data-yaku="dihu" data-tai="16">地胡</button><button class="btn btn-yaku" data-yaku="renhu" data-tai="16">人胡</button></div>
+        <div class="section-divider"></div>
+        <div class="text-center">
+             <button class="btn btn-success btn-lg" onclick="calculateTotalTai()">計算總台數</button>
+             <button class="btn btn-danger btn-lg" onclick="resetTaiCalculator()">全部重置</button>
+        </div>
+        <div id="tai-results-container" class="margin-top-20 hidden">
+             <h2>台數詳情</h2><ul id="tai-results-list"></ul>
+        </div>
+        <div class="text-center margin-top-20"><button class="btn btn-back" onclick="showMainMenu()">返回主選單</button></div>
+    </div>
+    
+    <div id="listener-calculator" class="hidden">
+        <h2 id="listener-title">聽牌/打聽計算</h2>
+        <div id="listener-tile-input">
+            <div class="tile-category"><div class="tile-category-name">萬字</div><script>for(let i=1;i<=9;i++)document.write(`<button class="tile-btn man" onclick="addTile_listener('m${i}')">${i}</button>`);</script></div>
+            <div class="tile-category"><div class="tile-category-name">筒子</div><script>for(let i=1;i<=9;i++)document.write(`<button class="tile-btn pin" onclick="addTile_listener('p${i}')">${i}</button>`);</script></div>
+            <div class="tile-category"><div class="tile-category-name">條子</div><script>for(let i=1;i<=9;i++)document.write(`<button class="tile-btn sou" onclick="addTile_listener('s${i}')">${i}</button>`);</script></div>
+            <div class="tile-category"><div class="tile-category-name">大字</div><script>const L_J=['東','南','西','北','中','發','白'];L_J.forEach((c,i)=>{document.write(`<button class="tile-btn ji" onclick="addTile_listener('z${i+1}')">${c}</button>`);});</script></div>
+        </div>
+        <h2>目前手牌 (<span id="listener-hand-count">0</span>)</h2>
+        <div id="listener-hand-container" class="hand-display-container"></div>
+        <div class="text-center margin-top-20">
+            <button class="btn btn-primary" onclick="calculateTing()">計算聽牌 (<span class="hand-size-req"></span>張)</button>
+            <button class="btn btn-secondary" onclick="analyzeDiscardForTing()">分析打聽 (<span class="hand-size-req-full"></span>張)</button>
+            <button class="btn btn-danger" onclick="resetHand_listener()">全部重置</button>
+        </div>
+        <div class="margin-top-20">
+            <h2>計算結果</h2><div id="listener-result" class="result-display"></div>
+        </div>
+        <div class="text-center margin-top-20"><button class="btn btn-back" onclick="showMainMenu()">返回主選單</button></div>
+    </div>
+
+    <div id="challenge-menu" class="hidden">
+        <h1>清一色試煉</h1>
+        <p class="text-center">選擇一個挑戰模式來測試你的牌理！</p>
+        <button class="btn btn-primary" style="display:block; margin:15px auto;" onclick="startChallenge('ting')">聽牌挑戰</button>
+        <button class="btn btn-secondary" style="display:block; margin:15px auto;" onclick="startChallenge('discard')">打聽挑戰</button>
+        <div class="text-center margin-top-20"><button class="btn btn-back" onclick="showMainMenu()">返回主選單</button></div>
+    </div>
+
+    <div id="challenge-gameplay" class="hidden">
+        <h2 id="challenge-title"></h2>
+        <h3>題目牌型:</h3>
+        <div id="challenge-hand" class="hand-display-container"></div>
+        <h3 class="margin-top-20">你的答案: (點擊下方按鈕選擇)</h3>
+        <div id="challenge-answer-options" class="text-center"></div>
+        <div id="challenge-feedback" class="result-display" style="min-height:2em; margin-top:15px;">請選擇答案後提交。</div>
+        <div class="text-center margin-top-20">
+            <button id="challenge-submit-btn" class="btn btn-primary" onclick="submitChallengeAnswer()">提交答案</button>
+            <button id="challenge-next-btn" class="btn btn-success hidden" onclick="generateChallengeProblem()">下一題</button>
+            <button class="btn btn-back" onclick="showChallengeMenu()">返回模式選擇</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// --- 全域變數和設定 ---
+let currentGame = ''; 
+const allScreens = document.querySelectorAll('.container > div');
+const TILE_MAP = {'p':{name:'筒',color:'pin'},'s':{name:'條',color:'sou'},'m':{name:'萬',color:'man'},'z':{name:'字',color:'ji'}};
+const JI_MAP = ['東','南','西','北','中','發','白'];
+const ALL_TILES = [];
+['p', 's', 'm'].forEach(s=>{for(let i=1;i<=9;i++)ALL_TILES.push(`${s}${i}`);});
+for(let i=1;i<=7;i++)ALL_TILES.push(`z${i}`);
+const GAME_RULES = {
+    tw: { name: '台灣 16 張麻將', handSize: 16, fullHandSize: 17, melds: 5 },
+    jp: { name: '日本麻將', handSize: 13, fullHandSize: 14, melds: 4 }
+};
+
+// 各模式的狀態
+let listenerHand = [];
+let taiState = {};
+let challengeState = {};
+
+// --- 畫面導航 ---
+function showScreen(screenId) {
+    allScreens.forEach(s => s.classList.add('hidden'));
+    document.getElementById(screenId).classList.remove('hidden');
+}
+function showMainMenu() { showScreen('game-selection'); }
+function showTaiMenu() { showScreen('tai-mode-selection'); }
+function showListenerCalculator(type) {
+    currentGame = type;
+    const rules = GAME_RULES[type];
+    document.getElementById('listener-title').textContent = `${rules.name} - 聽牌/打聽計算`;
+    document.querySelectorAll('.hand-size-req').forEach(el => el.textContent = rules.handSize);
+    document.querySelectorAll('.hand-size-req-full').forEach(el => el.textContent = rules.fullHandSize);
+    resetHand_listener();
+    showScreen('listener-calculator');
+}
+function showChallengeMenu() { showScreen('challenge-menu'); }
+
+// --- 通用工具函式 ---
+function createTileHTML(tileId, onClickAction = '', extraClass = '') {
+    const suit = tileId.charAt(0);
+    const num = tileId.slice(1);
+    let displayChar = (suit === 'z') ? JI_MAP[parseInt(num)-1] : num;
+    return `<div class="tile-btn ${TILE_MAP[suit].color} ${extraClass}" onclick="${onClickAction}">${displayChar}</div>`;
+}
+
+// --- 胡牌判斷核心引擎 (所有模式共用) ---
+function isWinningHand(hand, requiredMelds) {
+    if (hand.length % 3 !== 2) return false;
+    const pairs = new Set();
+    for (let i = 0; i < hand.length - 1; i++) if (hand[i] === hand[i+1]) pairs.add(hand[i]);
+    for (const pair of pairs) {
+        const remaining = [...hand];
+        remaining.splice(remaining.indexOf(pair), 2);
+        if (canFormMelds(remaining)) return true;
+    }
+    return false;
+}
+function canFormMelds(hand) {
+    if (hand.length === 0) return true;
+    const first = hand[0];
+    if (hand.length >= 3 && first === hand[1] && first === hand[2]) {
+        if (canFormMelds(hand.slice(3))) return true;
+    }
+    const suit = first.charAt(0);
+    if (suit !== 'z' && parseInt(first.slice(1)) <= 7) {
+        const s2 = `${suit}${parseInt(first.slice(1))+1}`, s3 = `${suit}${parseInt(first.slice(1))+2}`;
+        if (hand.includes(s2) && hand.includes(s3)) {
+            const nextHand = [...hand];
+            nextHand.splice(nextHand.indexOf(s3), 1);
+            nextHand.splice(nextHand.indexOf(s2), 1);
+            nextHand.splice(nextHand.indexOf(first), 1);
+            if (canFormMelds(nextHand)) return true;
+        }
+    }
+    return false;
+}
+
+// --- 模式 1: 聽牌/打聽計算機 ---
+function addTile_listener(tileId) {
+    const rules = GAME_RULES[currentGame];
+    if (listenerHand.length >= rules.fullHandSize) { alert(`手牌已滿 ${rules.fullHandSize} 張！`); return; }
+    if (listenerHand.filter(t => t === tileId).length >= 4) { alert('同種類的牌最多只能有 4 張！'); return; }
+    listenerHand.push(tileId);
+    listenerHand.sort();
+    updateHandDisplay_listener();
+}
+function removeTile_listener(index) { listenerHand.splice(index, 1); updateHandDisplay_listener(); }
+function resetHand_listener() {
+    listenerHand = [];
+    updateHandDisplay_listener();
+    document.getElementById('listener-result').innerHTML = '請輸入手牌後點擊計算。';
+}
+function updateHandDisplay_listener() {
+    const container = document.getElementById('listener-hand-container');
+    container.innerHTML = '';
+    listenerHand.forEach((tileId, index) => {
+        container.innerHTML += createTileHTML(tileId, `removeTile_listener(${index})`);
+    });
+    document.getElementById('listener-hand-count').textContent = listenerHand.length;
+}
+function calculateTing() {
+    const rules = GAME_RULES[currentGame];
+    if (listenerHand.length !== rules.handSize) return alert(`計算聽牌請輸入 ${rules.handSize} 張手牌！`);
+    const waitingFor = findWhatHandIsWaitingFor(listenerHand);
+    displayListenerResults(waitingFor);
+}
+function analyzeDiscardForTing() {
+    const rules = GAME_RULES[currentGame];
+    if (listenerHand.length !== rules.fullHandSize) return alert(`分析打聽請輸入 ${rules.fullHandSize} 張手牌！`);
+    const analysis = analyzeHandForDiscards(listenerHand);
+    displayListenerAnalysis(analysis);
+}
+function findWhatHandIsWaitingFor(hand) {
+    const rules = GAME_RULES[currentGame];
+    const waitingFor = [];
+    for (const tile of ALL_TILES) {
+        if (hand.filter(t => t === tile).length >= 4) continue;
+        let tempHand = [...hand, tile].sort();
+        if (isWinningHand(tempHand, rules.melds)) waitingFor.push(tile);
+    }
+    return waitingFor;
+}
+function analyzeHandForDiscards(hand) {
+    const analysis = [];
+    for (const discardCandidate of [...new Set(hand)]) {
+        const tempHand = [...hand];
+        tempHand.splice(tempHand.indexOf(discardCandidate), 1);
+        const waitingFor = findWhatHandIsWaitingFor(tempHand);
+        if (waitingFor.length > 0) analysis.push({ discard: discardCandidate, waits: waitingFor });
+    }
+    return analysis;
+}
+function displayListenerResults(waitingFor) {
+    const resultDiv = document.getElementById('listener-result');
+    if (waitingFor.length === 0) { resultDiv.innerHTML = '此牌型目前沒有聽牌（相公）。'; return; }
+    resultDiv.innerHTML = '聽：';
+    waitingFor.forEach(tileId => { resultDiv.innerHTML += createTileHTML(tileId); });
+}
+function displayListenerAnalysis(analysis) {
+    const resultDiv = document.getElementById('listener-result');
+    if (analysis.length === 0) { resultDiv.innerHTML = '此牌型無有效的打聽組合。'; return; }
+    let html = '<ul class="analysis-results" style="font-size: 1rem;">';
+    analysis.forEach(res => {
+        html += `<li>打 <span class="discard-tile-wrapper">${createTileHTML(res.discard)}</span> &rarr; 聽 `;
+        res.waits.forEach(waitTile => { html += createTileHTML(waitTile); });
+        html += '</li>';
+    });
+    resultDiv.innerHTML = html + '</ul>';
+}
+
+// --- 模式 2: 清一色試煉 ---
+function startChallenge(mode) {
+    challengeState.mode = mode;
+    document.getElementById('challenge-title').textContent = mode === 'ting' ? '聽牌挑戰' : '打聽挑戰';
+    generateChallengeProblem();
+    showScreen('challenge-gameplay');
+}
+function generateChallengeProblem() {
+    document.getElementById('challenge-submit-btn').classList.remove('hidden');
+    document.getElementById('challenge-next-btn').classList.add('hidden');
+    document.getElementById('challenge-feedback').innerHTML = '請選擇答案後提交。';
+    challengeState.userSelection = [];
+    const suit = ['p', 's', 'm'][Math.floor(Math.random() * 3)];
+    challengeState.currentSuit = suit;
+    let winningHand = [], tileCounts = {};
+    const getTile=(n)=>`${suit}${n}`;
+    const add=(t)=>{tileCounts[t]=(tileCounts[t]||0)+1;return tileCounts[t]<=4;};
+    const pairNum=Math.floor(Math.random()*9)+1; winningHand.push(getTile(pairNum),getTile(pairNum)); add(getTile(pairNum)); add(getTile(pairNum));
+    for(let i=0;i<5;i++){let m=false; while(!m){if(Math.random()>0.5){const s=Math.floor(Math.random()*7)+1; if(add(getTile(s))&&add(getTile(s+1))&&add(getTile(s+2))){winningHand.push(getTile(s),getTile(s+1),getTile(s+2));m=true;}else{tileCounts[getTile(s)]--;tileCounts[getTile(s+1)]--;tileCounts[getTile(s+2)]--;}}else{const n=Math.floor(Math.random()*9)+1; if(add(getTile(n))&&add(getTile(n))&&add(getTile(n))){winningHand.push(getTile(n),getTile(n),getTile(n));m=true;}else{tileCounts[getTile(n)]-=3;}}}}
+    winningHand.sort();
+    currentGame = 'tw';
+    if(challengeState.mode==='ting'){let p=[...winningHand];p.splice(Math.floor(Math.random()*p.length),1);challengeState.problemHand=p;challengeState.correctAnswer=findWhatHandIsWaitingFor(p);}else{challengeState.problemHand=winningHand;challengeState.correctAnswer=analyzeHandForDiscards(winningHand).map(item=>item.discard);}
+    const handContainer=document.getElementById('challenge-hand');handContainer.innerHTML='';challengeState.problemHand.forEach(t=>{handContainer.innerHTML+=createTileHTML(t,'','disabled');});
+    const optsContainer=document.getElementById('challenge-answer-options');optsContainer.innerHTML=''; for(let i=1;i<=9;i++){optsContainer.innerHTML+=createTileHTML(getTile(i),`selectChallengeAnswer('${getTile(i)}')`);}
+}
+function selectChallengeAnswer(tileId) {
+    const btn=event.target; const idx=challengeState.userSelection.indexOf(tileId);
+    if(challengeState.mode==='discard'){document.querySelectorAll('#challenge-answer-options .selected').forEach(b=>b.classList.remove('selected'));challengeState.userSelection=[];if(idx===-1){challengeState.userSelection.push(tileId);btn.classList.add('selected');}}else{if(idx>-1){challengeState.userSelection.splice(idx,1);btn.classList.remove('selected');}else{challengeState.userSelection.push(tileId);btn.classList.add('selected');}}
+}
+function submitChallengeAnswer() {
+    const feedbackDiv=document.getElementById('challenge-feedback'); const userAns=challengeState.userSelection.sort(); const correctAns=[...new Set(challengeState.correctAnswer)].sort();
+    const isCorrect=userAns.length===correctAns.length&&userAns.every((v,i)=>v===correctAns[i]);
+    feedbackDiv.innerHTML=isCorrect?'<span class="correct">✔ 答對了！</span>':`<span class="incorrect">✘ 答錯了！</span><br>正確答案是：${correctAns.map(t=>createTileHTML(t)).join('')}`;
+    document.getElementById('challenge-submit-btn').classList.add('hidden'); document.getElementById('challenge-next-btn').classList.remove('hidden');
+}
+
+
+// --- 模式 3: 算台模式 ---
+function startTaiCalculator(type) {
+    resetTaiCalculator();
+    showScreen('tai-calculator');
+}
+function resetTaiCalculator() {
+    taiState = { selectedTiles: [], exposedMelds: [], concealedHand: [], winningTile: null, yaku: {} };
+    document.querySelectorAll('.tile-btn.selected-for-action').forEach(b => b.classList.remove('selected-for-action'));
+    document.querySelectorAll('.btn-yaku.selected').forEach(b => b.classList.remove('selected'));
+    document.getElementById('tai-results-container').classList.add('hidden');
+    renderTaiHand();
+}
+function selectTileForAction(tileId) {
+    const btn=event.target; const idx=taiState.selectedTiles.indexOf(tileId);
+    if(idx>-1){taiState.selectedTiles.splice(idx,1);btn.classList.remove('selected-for-action');}else{taiState.selectedTiles.push(tileId);btn.classList.add('selected-for-action');}
+}
+function addSelectedToAction(action) {
+    const tiles=[...taiState.selectedTiles].sort();
+    switch (action){
+        case 'hand': taiState.concealedHand.push(...tiles); break;
+        case 'pong': if(tiles.length!==1)return alert('碰必須選1種牌'); taiState.exposedMelds.push({type:'pong',tiles:[tiles[0],tiles[0],tiles[0]]}); break;
+        case 'kong': if(tiles.length!==1)return alert('槓必須選1種牌'); taiState.exposedMelds.push({type:'kong',tiles:[tiles[0],tiles[0],tiles[0],tiles[0]]}); break;
+    }
+    taiState.selectedTiles=[]; document.querySelectorAll('.tile-btn.selected-for-action').forEach(b=>b.classList.remove('selected-for-action'));
+    renderTaiHand();
+}
+function renderTaiHand() {
+    const exposedContainer = document.getElementById('exposed-hand-display'); exposedContainer.innerHTML = '';
+    taiState.exposedMelds.forEach((meld, index) => { let html=`<div class="meld-group" onclick="removeMeld(${index})">`; meld.tiles.forEach(t => html+=createTileHTML(t)); exposedContainer.innerHTML+=html+`</div>`; });
+    const concealedContainer = document.getElementById('concealed-hand-display'); taiState.concealedHand.sort(); concealedContainer.innerHTML = '';
+    taiState.concealedHand.forEach((tile, index) => { let extraClass=tile===taiState.winningTile?'winning-tile':''; concealedContainer.innerHTML+=createTileHTML(tile,`setWinningTile(${index})`,extraClass); });
+}
+function removeMeld(index) { if(confirm('要刪除這組牌嗎?')) { taiState.exposedMelds.splice(index, 1); renderTaiHand(); }}
+function setWinningTile(index) {
+    const tile = taiState.concealedHand[index];
+    taiState.winningTile = taiState.winningTile === tile ? null : tile;
+    renderTaiHand();
+}
+document.querySelectorAll('.btn-yaku').forEach(btn=>{btn.addEventListener('click',()=>{const y=btn.dataset.yaku,t=parseInt(btn.dataset.tai);if(taiState.yaku[y]){delete taiState.yaku[y];btn.classList.remove('selected');}else{taiState.yaku[y]={name:btn.textContent,tai:t};btn.classList.add('selected');}});});
+function calculateTotalTai() {
+    const fullHand=[...taiState.concealedHand,...taiState.exposedMelds.flatMap(m=>m.tiles)];
+    if(fullHand.length!==17||!taiState.winningTile)return alert('牌數不對(應有17張)或未指定胡牌！');
+    let results=[], totalTai=0;
+    const isMenqing=taiState.exposedMelds.length===0;
+    const tileCounts=fullHand.reduce((a,t)=>{a[t]=(a[t]||0)+1;return a;},{});
+    const concealedTriplets=taiState.concealedHand.reduce((a,t)=>{a[t]=(a[t]||0)+1;return a;},{});
+    const concealedTripletCount=Object.keys(concealedTriplets).filter(k=>concealedTriplets[k]>=3).length;
+    const suits=new Set(fullHand.map(t=>t.charAt(0)));
+    const isPPH=taiState.exposedMelds.every(m=>m.type==='pong'||m.type==='kong') && concealedTripletCount + taiState.exposedMelds.length === 5;
+    if(isMenqing)results.push({name:'門清',tai:1});
+    if(isPPH)results.push({name:'碰碰胡',tai:4});
+    const isQYS=suits.size===1&&!suits.has('z'); const isZYS=suits.size===1&&suits.has('z'); const isHYS=suits.size===2&&suits.has('z');
+    if(isQYS)results.push({name:'清一色',tai:8}); if(isZYS)results.push({name:'字一色',tai:8}); if(isHYS)results.push({name:'湊一色',tai:4});
+    if(concealedTripletCount>=3)results.push({name:['','','','三','四','五'][concealedTripletCount]+'暗刻',tai:[0,0,0,2,5,8][concealedTripletCount]});
+    const D=['z5','z6','z7'], W=['z1','z2','z3','z4'];
+    const dTriplets=D.filter(t=>tileCounts[t]>=3).length; const wTriplets=W.filter(t=>tileCounts[t]>=3).length;
+    const dPair=D.some(t=>tileCounts[t]===2); const wPair=W.some(t=>tileCounts[t]===2);
+    if(dTriplets===3)results.push({name:'大三元',tai:8}); else if(dTriplets===2&&dPair)results.push({name:'小三元',tai:4});
+    if(wTriplets===4)results.push({name:'大四喜',tai:16}); else if(wTriplets===3&&wPair)results.push({name:'小四喜',tai:8});
+    Object.values(taiState.yaku).forEach(y=>results.push(y));
+    const list=document.getElementById('tai-results-list'); list.innerHTML='';
+    const finalResults=results.reduce((a,c)=>{if(!a.find(i=>i.name===c.name))a.push(c);return a;},[]);
+    finalResults.forEach(r=>{totalTai+=r.tai; list.innerHTML+=`<li><span>${r.name}</span><span>${r.tai} 台</span></li>`;});
+    list.innerHTML+=`<li><span>總計</span><span>${totalTai} 台</span></li>`;
+    document.getElementById('tai-results-container').classList.remove('hidden');
+}
+
+// --- 初始化 ---
+showMainMenu();
+</script>
+</body>
+</html>
